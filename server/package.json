@@ -1,0 +1,11 @@
+{
+    "name": "cloudsense-server",
+    "version": "1.0.0",
+    "description": "Server scripts for CloudSense notifications",
+    "main": "index.js",
+    "type": "module",
+    "dependencies": {
+        "firebase-admin": "^12.0.0",
+        "node-fetch": "^3.3.2"
+    }
+}
