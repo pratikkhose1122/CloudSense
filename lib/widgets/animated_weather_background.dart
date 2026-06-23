@@ -71,36 +71,39 @@ class _AnimatedWeatherBackgroundState extends State<AnimatedWeatherBackground>
     return Stack(
       children: [
         // 1. Sky Gradient
-        AnimatedContainer(
-           duration: const Duration(seconds: 1),
-           decoration: BoxDecoration(
-             gradient: LinearGradient(
-               begin: Alignment.topCenter,
-               end: Alignment.bottomCenter,
-               colors: gradientColors,
-             )
-           ),
+        RepaintBoundary(
+          child: AnimatedContainer(
+             duration: const Duration(seconds: 1),
+             decoration: BoxDecoration(
+               gradient: LinearGradient(
+                 begin: Alignment.topCenter,
+                 end: Alignment.bottomCenter,
+                 colors: gradientColors,
+               )
+             ),
+          ),
         ),
 
-        // 2. Sun / Moon
         // 2. Sun / Moon
         Positioned(
           top: 40,
           right: 24,
-          child: AnimatedBuilder(
-            animation: _sunMoonController,
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(0, 10 * _sunMoonController.value),
-                child: child,
-              );
-            },
-            child: Image.asset(
-              isNight ? 'assets/images/moon.png' : 'assets/images/sun.png',
-              width: 100,
-              height: 100,
-              fit: BoxFit.contain,
-              errorBuilder: (_,__,___) => const SizedBox(),
+          child: RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _sunMoonController,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(0, 10 * _sunMoonController.value),
+                  child: child,
+                );
+              },
+              child: Image.asset(
+                isNight ? 'assets/images/moon.png' : 'assets/images/sun.png',
+                width: 100,
+                height: 100,
+                fit: BoxFit.contain,
+                errorBuilder: (_,__,___) => const SizedBox(),
+              ),
             ),
           ),
         ),
@@ -108,11 +111,17 @@ class _AnimatedWeatherBackgroundState extends State<AnimatedWeatherBackground>
         // 3. Parallax Clouds
         if (widget.condition != 'clear' && widget.condition != 'night') ...[
            // Far Clouds
-           _buildParallaxCloud(size.width, 30, 0.4, 'assets/images/cloud_far.png', 0.2),
-           // Mid Clouds
-           _buildParallaxCloud(size.width, 20, 0.6, 'assets/images/cloud_mid.png', 0.5),
-           // Near Clouds
-           _buildParallaxCloud(size.width, 15, 0.9, 'assets/images/cloud_near.png', 0.8),
+           RepaintBoundary(
+             child: Stack(
+               children: [
+                 _buildParallaxCloud(size.width, 30, 0.4, 'assets/images/cloud_far.png', 0.2),
+                 // Mid Clouds
+                 _buildParallaxCloud(size.width, 20, 0.6, 'assets/images/cloud_mid.png', 0.5),
+                 // Near Clouds
+                 _buildParallaxCloud(size.width, 15, 0.9, 'assets/images/cloud_near.png', 0.8),
+               ],
+             ),
+           ),
         ],
 
         // 4. Tint Overlay

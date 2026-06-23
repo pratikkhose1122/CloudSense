@@ -1,115 +1,113 @@
-import 'package:flutter/foundation.dart';
-import '../models/weather.dart';
-import '../models/forecast.dart';
+import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import '../models/weather_model.dart';
 import '../services/weather_service.dart';
 
-class WeatherProvider with ChangeNotifier {
+/// Weather Provider for Kisan Mitra App
+/// Manages weather state and location-based fetching
+class WeatherProvider extends ChangeNotifier {
   final WeatherService _weatherService = WeatherService();
-  Weather? _weather;
-  bool _loading = false;
+  
+  WeatherModel? _weather;
+  bool _isLoading = false;
   String? _error;
+  Position? _currentPosition;
+  bool _locationPermissionDenied = false;
 
-  Weather? get weather => _weather;
-  bool get loading => _loading;
+  // Getters
+  WeatherModel? get weather => _weather;
+  bool get isLoading => _isLoading;
   String? get error => _error;
+  Position? get currentPosition => _currentPosition;
+  bool get locationPermissionDenied => _locationPermissionDenied;
 
-  List<ForecastItem> _hourly = [];
-  List<DailySummary> _daily = [];
+  /// Initialize and fetch weather with GPS
+  Future<void> initialize() async {
+    await fetchWeatherWithLocation();
+  }
 
-  List<ForecastItem> get hourly => _hourly;
-  List<DailySummary> get daily => _daily;
-
-  Future<void> search(String city) async {
-    _loading = true;
+  /// Fetch weather using current GPS location
+  Future<void> fetchWeatherWithLocation() async {
+    _setLoading(true);
     _error = null;
-    notifyListeners();
-
+    
     try {
-      _weather = await _weatherService.getWeather(city);
-      await _fetchForecastByCity(city);
-    } catch (e) {
-      _error = e.toString().replaceAll('Exception: ', '');
-      _weather = null;
-    } finally {
-      _loading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> searchByCoords(double lat, double lon) async {
-    _loading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      _weather = await _weatherService.getWeatherByCoords(lat, lon);
-      await _fetchForecastByCoords(lat, lon);
-    } catch (e) {
-      _error = e.toString().replaceAll('Exception: ', '');
-      _weather = null;
-    } finally {
-      _loading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> _fetchForecastByCity(String city) async {
-    try {
-      final list = await _weatherService.getForecast(city);
-      _processForecastData(list);
-    } catch (e) {
-      print('Forecast error: $e');
-      // Non-critical, just empty forecast
-      _hourly = [];
-      _daily = [];
-    }
-  }
-
-  Future<void> _fetchForecastByCoords(double lat, double lon) async {
-    try {
-      final list = await _weatherService.getForecastByCoords(lat, lon);
-      _processForecastData(list);
-    } catch (e) {
-      print('Forecast error: $e');
-      _hourly = [];
-      _daily = [];
-    }
-  }
-
-  void _processForecastData(List<dynamic> list) {
-    _hourly = list.take(8).map((e) => ForecastItem.fromJson(e)).toList();
-
-    // Aggregate daily
-    final Map<String, List<ForecastItem>> grouped = {};
-    for (var item in list) {
-      final forecast = ForecastItem.fromJson(item);
-      final key = '${forecast.dt.year}-${forecast.dt.month}-${forecast.dt.day}';
-      if (!grouped.containsKey(key)) grouped[key] = [];
-      grouped[key]!.add(forecast);
-    }
-
-    _daily = grouped.entries.map((e) {
-      final items = e.value;
-      final date = items.first.dt;
-      double min = items.first.temp;
-      double max = items.first.temp;
+      // Get current position
+      final position = await _weatherService.getCurrentPosition();
       
-      // Simple logic: taking icon of the middle of the day (noon) if available
-      String icon = items[items.length ~/ 2].icon;
-      String desc = items[items.length ~/ 2].description;
-
-      for (var i in items) {
-        if (i.temp < min) min = i.temp;
-        if (i.temp > max) max = i.temp;
+      if (position == null) {
+        _locationPermissionDenied = true;
+        _error = 'Location permission denied. Please enable location services.';
+        _setLoading(false);
+        return;
       }
-
-      return DailySummary(
-        date: date,
-        minTemp: min,
-        maxTemp: max,
-        icon: icon,
-        description: desc,
+      
+      _currentPosition = position;
+      _locationPermissionDenied = false;
+      
+      // Fetch weather for current location
+      _weather = await _weatherService.getWeatherByCoords(
+        position.latitude,
+        position.longitude,
       );
-    }).skip(1).take(5).toList(); // Skip today (usually partial), take next 5
+      
+      _error = null;
+    } catch (e) {
+      _error = 'Failed to fetch weather: $e';
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Fetch weather by city name
+  Future<void> fetchWeatherByCity(String city) async {
+    _setLoading(true);
+    _error = null;
+    
+    try {
+      _weather = await _weatherService.getWeatherByCity(city);
+      _error = null;
+    } catch (e) {
+      _error = 'City not found. Please try again.';
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Refresh weather data
+  Future<void> refreshWeather() async {
+    if (_currentPosition != null) {
+      await fetchWeatherWithLocation();
+    } else if (_weather != null) {
+      await fetchWeatherByCity(_weather!.cityName);
+    } else {
+      await fetchWeatherWithLocation();
+    }
+  }
+
+  /// Check if rain is expected
+  Future<bool> isRainExpected() async {
+    if (_currentPosition == null) return false;
+    
+    try {
+      return await _weatherService.isRainExpected(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Set loading state
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  /// Clear error
+  void clearError() {
+    _error = null;
+    notifyListeners();
   }
 }

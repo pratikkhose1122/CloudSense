@@ -19,7 +19,7 @@ class GlassContainer extends StatelessWidget {
     this.child,
     this.borderRadius = 20.0,
     this.padding = const EdgeInsets.all(16.0),
-    this.blur = 12.0,
+    this.blur = 5.0, // Reduced from 12.0 for performance
     this.gradient,
     this.borderColor,
     this.boxShadow,
@@ -47,9 +47,10 @@ class GlassContainer extends StatelessWidget {
        ),
        child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: Container(
+        child: RepaintBoundary(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+            child: Container(
             padding: padding,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(borderRadius),
@@ -71,6 +72,7 @@ class GlassContainer extends StatelessWidget {
             child: child,
           ),
         ),
+      ),
       ),
     );
   }
